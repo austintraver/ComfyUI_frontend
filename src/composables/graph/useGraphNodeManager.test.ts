@@ -19,6 +19,7 @@ import { useSettingStore } from '@/platform/settings/settingStore'
 import { app } from '@/scripts/app'
 import { linkedWidgetedInputs } from '@/renderer/extensions/vueNodes/utils/nodeDataUtils'
 import { useExecutionErrorStore } from '@/stores/executionErrorStore'
+import { useLinkStore } from '@/stores/linkStore'
 import { useWidgetValueStore } from '@/stores/widgetValueStore'
 
 describe('Node Reactivity', () => {
@@ -135,7 +136,9 @@ describe('Widget input link reactivity', () => {
     const nodeData = vueNodeData.get(node.id)
 
     expect(nodeData?.inputs?.[0]?.widget?.name).toBe('prompt')
-    expect(nodeData?.inputs?.[0]?.link).not.toBeNull()
+    expect(
+      useLinkStore().isInputSlotConnected(graph.rootGraph.id, node.id, 0)
+    ).toBe(true)
   })
 
   it('marks a widget input slot as linked when connected to a SubgraphInput', () => {
@@ -155,7 +158,9 @@ describe('Widget input link reactivity', () => {
     const { vueNodeData } = useGraphNodeManager(subgraph)
     const nodeData = vueNodeData.get(node.id)
 
-    expect(nodeData?.inputs?.[0]?.link).not.toBeNull()
+    expect(
+      useLinkStore().isInputSlotConnected(subgraph.rootGraph.id, node.id, 0)
+    ).toBe(true)
     expect(
       linkedWidgetedInputs(nodeData!, subgraph.rootGraph.id).map((s) => s.name)
     ).toEqual(['prompt'])

@@ -77,6 +77,17 @@ describe('deprecated slot link mirrors', () => {
     })
   })
 
+  describe('first-party code avoids the mirrors', () => {
+    it('fires no deprecation warnings when removing connected nodes', () => {
+      const { graph, source, target } = createConnectedPair()
+
+      graph.remove(source)
+      graph.remove(target)
+
+      expect(deprecationCallback).not.toHaveBeenCalled()
+    })
+  })
+
   describe('NodeOutputSlot.links', () => {
     it('returns the link ids for a connected output and warns', () => {
       const { source, link } = createConnectedPair()

@@ -624,8 +624,11 @@ function repairPrimitive(
   }
 
   const baseName = userRenamedTitle(primitiveNode) ?? validated.sourceWidgetName
-  const snapshot: SnapshotLink[] = (primitiveOutput.links ?? [])
-    .map((id) => subgraph.links.get(id))
+  const snapshot: SnapshotLink[] = primitiveOutputTopologies(
+    hostNode,
+    primitiveNode
+  )
+    .map((topology) => subgraph.links.get(topology.id))
     .filter(
       (l): l is NonNullable<typeof l> =>
         l !== undefined && l.target_id !== UNASSIGNED_NODE_ID

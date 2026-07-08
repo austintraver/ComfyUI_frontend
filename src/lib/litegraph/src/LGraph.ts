@@ -15,7 +15,12 @@ import { toLinkId } from '@/types/linkId'
 import { toRerouteId } from '@/types/rerouteId'
 import { useLinkStore } from '@/stores/linkStore'
 import { useRerouteStore } from '@/stores/rerouteStore'
-import { inputHasLink, inputLinkId, outputLinks } from './node/slotLinks'
+import {
+  inputHasLink,
+  inputLinkId,
+  outputHasLinks,
+  outputLinks
+} from './node/slotLinks'
 import { usePreviewExposureStore } from '@/stores/previewExposureStore'
 import { useWidgetValueStore } from '@/stores/widgetValueStore'
 import { UNASSIGNED_NODE_ID, parseNodeId, toNodeId } from '@/types/nodeId'
@@ -1177,8 +1182,8 @@ export class LGraph
 
     // disconnect outputs
     if (outputs) {
-      for (const [i, slot] of outputs.entries()) {
-        if (slot.links?.length) node.disconnectOutput(i)
+      for (const [i] of outputs.entries()) {
+        if (outputHasLinks(this, node.id, i)) node.disconnectOutput(i)
       }
     }
 
