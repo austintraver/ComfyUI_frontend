@@ -1874,6 +1874,22 @@ export class LGraph
       groups: structuredClone([...groups].map((group) => group.serialize()))
     } satisfies ExportedSubgraph
 
+    // The clones keep the originals' ids and the stores key by id in
+    // root-scoped buckets, so the originals' links and reroutes must leave
+    // the stores before configure() registers the clones.
+    for (const resolved of resolvedInputLinks)
+      resolved.inputNode?.disconnectInput(
+        resolved.inputNode.inputs.indexOf(resolved.input!),
+        true
+      )
+    for (const resolved of resolvedOutputLinks)
+      resolved.outputNode?.disconnectOutput(
+        resolved.outputNode.outputs.indexOf(resolved.output!),
+        resolved.inputNode
+      )
+    for (const reroute of reroutes) this.removeReroute(reroute.id)
+    for (const link of internalLinks) this._removeLink(link.id)
+
     const subgraph = this.createSubgraph(data)
     subgraph.configure(data)
     for (const node of subgraph.nodes) node.onGraphConfigured?.()
@@ -1888,19 +1904,7 @@ export class LGraph
     alignOutsideContainer(outputRect, Alignment.MidRight, boundingRect, [50, 0])
 
     // Remove items converted to subgraph
-    for (const resolved of resolvedInputLinks)
-      resolved.inputNode?.disconnectInput(
-        resolved.inputNode.inputs.indexOf(resolved.input!),
-        true
-      )
-    for (const resolved of resolvedOutputLinks)
-      resolved.outputNode?.disconnectOutput(
-        resolved.outputNode.outputs.indexOf(resolved.output!),
-        resolved.inputNode
-      )
-
     for (const node of nodes) this.remove(node)
-    for (const reroute of reroutes) this.removeReroute(reroute.id)
     for (const group of groups) this.remove(group)
 
     this.rootGraph.events.dispatch('convert-to-subgraph', {
