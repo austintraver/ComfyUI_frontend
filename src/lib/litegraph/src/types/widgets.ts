@@ -397,11 +397,11 @@ export type TWidgetType = IWidget['type']
 export type TWidgetValue = IWidget['value']
 
 export function isWidgetValue(value: unknown): value is TWidgetValue {
-  if (value === undefined) return true
+  if (value === undefined || value === null) return true
   if (typeof value === 'string') return true
   if (typeof value === 'number') return true
   if (typeof value === 'boolean') return true
-  return value !== null && typeof value === 'object'
+  return typeof value === 'object'
 }
 
 /**
