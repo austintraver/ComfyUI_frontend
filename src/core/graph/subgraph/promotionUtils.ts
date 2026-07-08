@@ -66,11 +66,10 @@ function resolvePromotionSource(
     const link = subgraphNode.subgraph.getLink(linkId)
     if (!link) continue
 
-    const { inputNode } = link.resolve(subgraphNode.subgraph)
-    if (!inputNode || !Array.isArray(inputNode.inputs)) continue
-
-    const targetInput = inputNode.inputs.find((entry) => entry.link === linkId)
-    if (!targetInput) continue
+    const { inputNode, input: targetInput } = link.resolve(
+      subgraphNode.subgraph
+    )
+    if (!inputNode || !targetInput) continue
 
     if (inputNode.isSubgraphNode()) {
       return {
@@ -394,7 +393,7 @@ function demotePromotedInput(
   const linkedInput = hostInput?._subgraphSlot
   if (!linkedInput) return false
 
-  if (hostInput.link != null) {
+  if (subgraphNode.isInputConnected(subgraphNode.inputs.indexOf(hostInput))) {
     linkedInput.disconnect()
   } else {
     subgraphNode.subgraph.removeInput(linkedInput)
