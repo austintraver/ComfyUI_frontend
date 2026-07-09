@@ -1745,12 +1745,14 @@ export class LGraph
   /**
    * Removes duplicate links that share the same connection tuple
    * (origin_id, origin_slot, target_id, target_slot). Keeps the link
-   * referenced by input.link and removes orphaned duplicates from
-   * output.links and the graph's _links map.
+   * referenced by the serialized input data and removes orphaned duplicates
+   * from the link store and the graph's _links map.
    *
    * Three phases: group links by tuple, select the survivor, purge duplicates.
    */
-  _removeDuplicateLinks(): void {
+  _removeDuplicateLinks(
+    nodeDataMap?: ReadonlyMap<SerializedNodeId, ISerialisedNode>
+  ): void {
     const groups = groupLinksByTuple(this._links)
 
     for (const ids of groups.values()) {
@@ -1758,7 +1760,11 @@ export class LGraph
 
       const sampleLink = this._links.get(ids[0])!
       const node = this.getNodeById(sampleLink.target_id)
-      const keepId = selectSurvivorLink(ids, node)
+      const keepId = selectSurvivorLink(
+        ids,
+        node,
+        nodeDataMap?.get(sampleLink.target_id)
+      )
 
       purgeOrphanedLinks(ids, keepId, this)
     }
@@ -2708,11 +2714,11 @@ export class LGraph
         }
       }
 
-      // Remove duplicate links: links in output.links that share the same
+      // Remove duplicate links: links that share the same
       // (origin_id, origin_slot, target_id, target_slot) tuple.
       // This repairs corrupted data where extra link objects were created
       // without proper cleanup of the previous connection.
-      this._removeDuplicateLinks()
+      this._removeDuplicateLinks(nodeDataMap)
 
       // Node configure() overrides may have reordered serialized inputs in
       // place to match current node definitions; re-key links to the slots
