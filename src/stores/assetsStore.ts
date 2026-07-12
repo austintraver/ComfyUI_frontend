@@ -394,6 +394,10 @@ export const useAssetsStore = defineStore('assets', () => {
    * Multiple node types sharing the same category share the same cache entry.
    * Public API accepts nodeType for backwards compatibility but translates
    * to category internally using modelToNodeStore.getCategoryForNodeType().
+   *
+   * Runs on every distribution; whether anything fetches through it is
+   * decided by consumers via `assetService.isAssetAPIEnabled()`, which stays
+   * the authoritative off-cloud gate.
    */
   const getModelState = () => {
     const modelStateByCategory = ref(new Map<string, ModelPaginationState>())
@@ -518,6 +522,7 @@ export const useAssetsStore = defineStore('assets', () => {
       const state = createState(existingState?.assets)
 
       const seenIds = new Set<string>()
+      let previousBatchSignature = ''
 
       const hasExistingData = modelStateByCategory.value.has(category)
       if (hasExistingData) {
@@ -548,19 +553,24 @@ export const useAssetsStore = defineStore('assets', () => {
             }
 
             // Merge new assets into existing map and track seen IDs
-            const uniqueIdsBefore = seenIds.size
             for (const asset of newAssets) {
               seenIds.add(asset.id)
               state.assets.set(asset.id, asset)
             }
             state.assets = new Map(state.assets)
 
-            // A full page that contributes no new IDs means the backend is not
-            // honouring `offset`; stop rather than refetch the same page forever.
-            const madeProgress = seenIds.size > uniqueIdsBefore
+            // A full page identical to the previous one means the backend is
+            // not honouring `offset`; stop rather than refetch it forever. An
+            // all-duplicate page whose content differs (concurrent writes
+            // shifting pagination windows) keeps going — later pages can
+            // still hold unseen assets.
+            const batchSignature = newAssets.map((asset) => asset.id).join(',')
+            const isRepeatedPage =
+              newAssets.length > 0 && batchSignature === previousBatchSignature
+            previousBatchSignature = batchSignature
             state.offset += newAssets.length
             state.hasMore =
-              newAssets.length === MODEL_BATCH_SIZE && madeProgress
+              newAssets.length === MODEL_BATCH_SIZE && !isRepeatedPage
 
             if (isFirstBatch) {
               state.isLoading = false
@@ -576,7 +586,16 @@ export const useAssetsStore = defineStore('assets', () => {
             state.error = err instanceof Error ? err : new Error(String(err))
             state.hasMore = false
             state.isLoading = false
-            pendingRequestByCategory.delete(category)
+            // A refresh that fails before its first batch never replaces the
+            // committed state, so mirror the error onto the state consumers
+            // actually read (getError) instead of only the discarded one.
+            const committed = modelStateByCategory.value.get(category)
+            if (committed && committed !== state) {
+              committed.error = state.error
+            }
+            if (pendingRequestByCategory.get(category) === state) {
+              pendingRequestByCategory.delete(category)
+            }
 
             return
           }
@@ -589,11 +608,19 @@ export const useAssetsStore = defineStore('assets', () => {
           state.assets.delete(id)
         }
         assetsArrayCache.delete(category)
-        pendingRequestByCategory.delete(category)
+        if (pendingRequestByCategory.get(category) === state) {
+          pendingRequestByCategory.delete(category)
+        }
       }
 
+      // Guard both cleanups: an invalidateCategory during an awaited fetch
+      // lets a newer request register its own entries before this one's
+      // teardown runs, and an unconditional delete would evict the newer
+      // request's entry and break single-flighting.
       const promise = loadBatches().finally(() => {
-        pendingPromiseByCategory.delete(category)
+        if (pendingPromiseByCategory.get(category) === promise) {
+          pendingPromiseByCategory.delete(category)
+        }
       })
       pendingPromiseByCategory.set(category, promise)
       await promise
