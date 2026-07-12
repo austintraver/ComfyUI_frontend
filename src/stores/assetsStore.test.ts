@@ -934,6 +934,31 @@ describe('assetsStore - Model Assets Cache (Cloud)', () => {
         'late-arrival'
       )
     })
+
+    it('terminates when an offset-ignoring backend alternates page orderings', async () => {
+      const store = useAssetsStore()
+      const nodeType = 'CheckpointLoaderSimple'
+
+      // Same full page served forever with a nondeterministic ordering: no
+      // page ever contributes a new ID, and no two consecutive pages are
+      // identical. The walk must still stop.
+      const fullPage = Array.from({ length: 500 }, (_, i) =>
+        createMockAsset(`asset-${i}`)
+      )
+      const reversed = [...fullPage].reverse()
+      let callCount = 0
+      vi.mocked(assetService.getAssetsForNodeType).mockImplementation(
+        async () => {
+          callCount++
+          return callCount % 2 === 1 ? fullPage : reversed
+        }
+      )
+
+      await store.updateModelsForNodeType(nodeType)
+
+      expect(callCount).toBeLessThanOrEqual(5)
+      expect(store.getAssets(nodeType)).toHaveLength(500)
+    })
   })
 
   describe('refresh error surfacing', () => {
