@@ -899,6 +899,62 @@ describe('assetsStore - Model Assets Cache (Cloud)', () => {
       ).toHaveBeenCalledTimes(2)
       expect(store.getAssets(nodeType)).toHaveLength(500)
     })
+
+    it('continues past an all-duplicate page whose content differs from the previous page', async () => {
+      const store = useAssetsStore()
+      const nodeType = 'CheckpointLoaderSimple'
+
+      // Concurrent writes can shift pagination windows so a page is all
+      // already-seen assets without the backend ignoring offset; later pages
+      // can still hold unseen assets.
+      const fullPage = Array.from({ length: 500 }, (_, i) =>
+        createMockAsset(`asset-${i}`)
+      )
+      const samePageReordered = [...fullPage].reverse()
+      const finalPage = [createMockAsset('late-arrival')]
+
+      let callCount = 0
+      vi.mocked(assetService.getAssetsForNodeType).mockImplementation(
+        async () => {
+          callCount++
+          if (callCount === 1) return fullPage
+          if (callCount === 2) return samePageReordered
+          return finalPage
+        }
+      )
+
+      await store.updateModelsForNodeType(nodeType)
+
+      await vi.waitFor(() => {
+        expect(
+          vi.mocked(assetService.getAssetsForNodeType)
+        ).toHaveBeenCalledTimes(3)
+      })
+      expect(store.getAssets(nodeType).map((a) => a.id)).toContain(
+        'late-arrival'
+      )
+    })
+  })
+
+  describe('refresh error surfacing', () => {
+    it('surfaces a failed refresh on the committed state consumers read', async () => {
+      const store = useAssetsStore()
+      const nodeType = 'CheckpointLoaderSimple'
+
+      vi.mocked(assetService.getAssetsForNodeType).mockResolvedValueOnce([
+        createMockAsset('existing')
+      ])
+      await store.updateModelsForNodeType(nodeType)
+      expect(store.getError(nodeType)).toBeUndefined()
+
+      vi.mocked(assetService.getAssetsForNodeType).mockRejectedValueOnce(
+        new Error('backend down')
+      )
+      await store.updateModelsForNodeType(nodeType)
+
+      expect(store.getAssets(nodeType).map((a) => a.id)).toEqual(['existing'])
+      expect(store.getError(nodeType)?.message).toBe('backend down')
+    })
   })
 
   describe('concurrent request handling', () => {
@@ -946,6 +1002,34 @@ describe('assetsStore - Model Assets Cache (Cloud)', () => {
       await store.updateModelsForNodeType(nodeType)
 
       expect(store.getAssets(nodeType)).toHaveLength(2)
+      expect(
+        vi.mocked(assetService.getAssetsForNodeType)
+      ).toHaveBeenCalledTimes(2)
+    })
+
+    it('keeps a newer request single-flighted when a stale request finishes after invalidation', async () => {
+      const store = useAssetsStore()
+      const nodeType = 'CheckpointLoaderSimple'
+
+      let resolveFirst!: (assets: AssetItem[]) => void
+      const firstFetch = new Promise<AssetItem[]>((resolve) => {
+        resolveFirst = resolve
+      })
+      vi.mocked(assetService.getAssetsForNodeType)
+        .mockReturnValueOnce(firstFetch)
+        .mockReturnValue(new Promise<AssetItem[]>(() => {}))
+
+      const staleRequest = store.updateModelsForNodeType(nodeType)
+      store.invalidateCategory('checkpoints')
+      void store.updateModelsForNodeType(nodeType)
+
+      resolveFirst([createMockAsset('stale')])
+      await staleRequest
+
+      // The stale request's teardown must not evict the newer request's
+      // single-flight entry: a third call short-circuits instead of starting
+      // a duplicate walk.
+      void store.updateModelsForNodeType(nodeType)
       expect(
         vi.mocked(assetService.getAssetsForNodeType)
       ).toHaveBeenCalledTimes(2)
