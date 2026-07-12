@@ -522,7 +522,8 @@ export const useAssetsStore = defineStore('assets', () => {
       const state = createState(existingState?.assets)
 
       const seenIds = new Set<string>()
-      let previousBatchSignature = ''
+      const seenPageSignatures = new Set<string>()
+      let consecutiveNoProgressPages = 0
 
       const hasExistingData = modelStateByCategory.value.has(category)
       if (hasExistingData) {
@@ -553,24 +554,33 @@ export const useAssetsStore = defineStore('assets', () => {
             }
 
             // Merge new assets into existing map and track seen IDs
+            const uniqueIdsBefore = seenIds.size
             for (const asset of newAssets) {
               seenIds.add(asset.id)
               state.assets.set(asset.id, asset)
             }
             state.assets = new Map(state.assets)
 
-            // A full page identical to the previous one means the backend is
-            // not honouring `offset`; stop rather than refetch it forever. An
-            // all-duplicate page whose content differs (concurrent writes
-            // shifting pagination windows) keeps going — later pages can
-            // still hold unseen assets.
+            // Termination guards for backends that do not honour `offset`.
+            // A page whose exact ID sequence was already served means the
+            // walk is cycling, however the pages are ordered — stop. A single
+            // all-duplicate page with fresh content (concurrent writes
+            // shifting pagination windows) keeps going, but a run of them
+            // with no new IDs is treated as exhausted so reordered responses
+            // can never loop forever.
             const batchSignature = newAssets.map((asset) => asset.id).join(',')
             const isRepeatedPage =
-              newAssets.length > 0 && batchSignature === previousBatchSignature
-            previousBatchSignature = batchSignature
+              newAssets.length > 0 && seenPageSignatures.has(batchSignature)
+            seenPageSignatures.add(batchSignature)
+            const madeProgress = seenIds.size > uniqueIdsBefore
+            consecutiveNoProgressPages = madeProgress
+              ? 0
+              : consecutiveNoProgressPages + 1
             state.offset += newAssets.length
             state.hasMore =
-              newAssets.length === MODEL_BATCH_SIZE && !isRepeatedPage
+              newAssets.length === MODEL_BATCH_SIZE &&
+              !isRepeatedPage &&
+              consecutiveNoProgressPages < 3
 
             if (isFirstBatch) {
               state.isLoading = false
