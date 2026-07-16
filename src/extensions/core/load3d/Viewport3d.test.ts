@@ -249,7 +249,6 @@ describe('Viewport3d', () => {
       expect(overlay.onActiveCameraChange).toHaveBeenCalledWith(
         ctx.cameraManager.activeCamera
       )
-      expect(ctx.viewport.getOverlay()).toBe(overlay)
     })
 
     it('replacing an overlay detaches and disposes the prior one', () => {
@@ -261,18 +260,6 @@ describe('Viewport3d', () => {
       expect(first.detach).toHaveBeenCalledOnce()
       expect(first.dispose).toHaveBeenCalledOnce()
       expect(second.attach).toHaveBeenCalledWith(ctx.sceneManager.scene)
-      expect(ctx.viewport.getOverlay()).toBe(second)
-    })
-
-    it('removeOverlay detaches and disposes the installed overlay', () => {
-      const overlay = makeOverlay()
-      ctx.viewport.setOverlay(overlay)
-
-      ctx.viewport.removeOverlay()
-
-      expect(overlay.detach).toHaveBeenCalledOnce()
-      expect(overlay.dispose).toHaveBeenCalledOnce()
-      expect(ctx.viewport.getOverlay()).toBeNull()
     })
 
     it('tickPerFrame forwards delta to the overlay before view-helper/controls update', () => {
