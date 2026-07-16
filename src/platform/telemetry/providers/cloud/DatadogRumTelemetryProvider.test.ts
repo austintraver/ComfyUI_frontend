@@ -2,16 +2,18 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { DatadogRumTelemetryProvider } from './DatadogRumTelemetryProvider'
 
+const addAction = vi.fn()
 const setViewName = vi.fn()
 
 function installDatadogRum(): void {
   Object.defineProperty(window, 'DD_RUM', {
     configurable: true,
-    value: { setViewName }
+    value: { addAction, setViewName }
   })
 }
 
 afterEach(() => {
+  addAction.mockReset()
   setViewName.mockReset()
   Reflect.deleteProperty(window, 'DD_RUM')
 })
@@ -49,9 +51,52 @@ describe('DatadogRumTelemetryProvider', () => {
     expect(setViewName).toHaveBeenCalledWith(expected)
   })
 
+  it('tracks workflow execution starts', () => {
+    installDatadogRum()
+
+    new DatadogRumTelemetryProvider().trackWorkflowExecution()
+
+    expect(addAction).toHaveBeenCalledWith('workflow_execution_started', {
+      product: 'cloud_generation',
+      product_surface: 'workspace'
+    })
+  })
+
+  it.for([
+    {
+      outcome: 'success',
+      trackOutcome: (provider: DatadogRumTelemetryProvider) =>
+        provider.trackExecutionSuccess()
+    },
+    {
+      outcome: 'failure',
+      trackOutcome: (provider: DatadogRumTelemetryProvider) =>
+        provider.trackExecutionError()
+    }
+  ] as const)(
+    'tracks workflow $outcome outcomes',
+    ({ outcome, trackOutcome }) => {
+      installDatadogRum()
+      const provider = new DatadogRumTelemetryProvider()
+
+      trackOutcome(provider)
+
+      expect(addAction).toHaveBeenCalledWith('workflow_execution_completed', {
+        outcome,
+        product: 'cloud_generation',
+        product_surface: 'workspace'
+      })
+    }
+  )
+
   it('does nothing when Datadog RUM is unavailable', () => {
-    expect(() =>
-      new DatadogRumTelemetryProvider().trackPageView('ignored')
-    ).not.toThrow()
+    const provider = new DatadogRumTelemetryProvider()
+
+    expect(() => provider.trackPageView('ignored')).not.toThrow()
+    expect(() => provider.trackWorkflowExecution()).not.toThrow()
+    expect(() => provider.trackExecutionSuccess()).not.toThrow()
+    expect(() => provider.trackExecutionError()).not.toThrow()
+    expect(addAction).not.toHaveBeenCalled()
+    expect(setViewName).not.toHaveBeenCalled()
   })
 })

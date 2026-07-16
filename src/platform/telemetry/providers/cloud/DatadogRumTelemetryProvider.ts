@@ -1,6 +1,7 @@
 import type { PageViewMetadata, TelemetryProvider } from '../../types'
 
 interface DatadogRumClient {
+  addAction(name: string, context?: Record<string, unknown>): void
   setViewName(name: string): void
 }
 
@@ -20,6 +21,15 @@ const SUPPORT_RECOVERY_PATHS = new Set([
   '/cloud/sorry-contact-support'
 ])
 
+const WORKFLOW_CONTEXT = {
+  product: 'cloud_generation',
+  product_surface: 'workspace'
+} as const
+
+function getDatadogRum(): DatadogRumClient | undefined {
+  return (window as WindowWithDatadogRum).DD_RUM
+}
+
 function getViewName(path = window.location.href): ViewName {
   const pathname = new URL(path, window.location.origin).pathname.replace(
     /\/$/,
@@ -34,7 +44,25 @@ function getViewName(path = window.location.href): ViewName {
 
 export class DatadogRumTelemetryProvider implements TelemetryProvider {
   trackPageView(_pageName: string, properties?: PageViewMetadata): void {
-    const rum = (window as WindowWithDatadogRum).DD_RUM
-    rum?.setViewName(getViewName(properties?.path))
+    getDatadogRum()?.setViewName(getViewName(properties?.path))
+  }
+
+  trackWorkflowExecution(): void {
+    getDatadogRum()?.addAction('workflow_execution_started', WORKFLOW_CONTEXT)
+  }
+
+  trackExecutionSuccess(): void {
+    this.trackTerminalOutcome('success')
+  }
+
+  trackExecutionError(): void {
+    this.trackTerminalOutcome('failure')
+  }
+
+  private trackTerminalOutcome(outcome: 'success' | 'failure'): void {
+    getDatadogRum()?.addAction('workflow_execution_completed', {
+      ...WORKFLOW_CONTEXT,
+      outcome
+    })
   }
 }
