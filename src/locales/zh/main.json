@@ -785,6 +785,11 @@
       "gpuUsage": "GPU 使用"
     },
     "faqs": "常见问题",
+    "insufficient": {
+      "memberCta": "好的，知道了",
+      "memberDescription": "您的团队已用完所有积分。工作区管理员需要添加更多积分以运行工作流。",
+      "memberTitle": "此工作区积分已用完"
+    },
     "invoiceHistory": "发票历史",
     "lastUpdated": "最近更新",
     "loadEventsError": "活动加载失败。请重试。",
@@ -4398,6 +4403,32 @@
     }
   },
   "workspacePanel": {
+    "billingStatus": {
+      "ending": {
+        "body": "在此之前成员可保持全部访问权限。重新激活以保留共享积分和席位。",
+        "reactivate": "重新激活套餐",
+        "title": "您的团队套餐将于 {date} 结束"
+      },
+      "outOfCredits": {
+        "addCredits": "添加积分",
+        "body": "您的团队已用完所有积分。请添加更多积分以继续生成，或等待积分在 {date} 自动补充。",
+        "bodyNoDate": "您的团队已用完所有积分。请添加更多积分以继续生成。",
+        "dismiss": "忽略",
+        "memberBody": "您的团队已用完所有积分。工作区管理员需要添加更多积分以继续生成。",
+        "title": "积分已用完"
+      },
+      "paused": {
+        "body": "此工作区的订阅已暂停。请更新付款方式以恢复订阅。",
+        "memberBody": "此工作区的订阅已暂停。工作区管理员需要更新付款方式。",
+        "title": "订阅已暂停"
+      },
+      "updatePayment": "更新付款方式",
+      "warning": {
+        "body": "您的上一次付款未成功。如未更新付款方式，您的订阅将在 {date} 暂停。",
+        "bodyNoDate": "您的上一次付款未成功。请更新付款方式以避免暂停。",
+        "title": "付款被拒绝"
+      }
+    },
     "changeRoleDialog": {
       "demoteConfirm": "降级为成员",
       "demoteMessage": "他们将失去管理员权限。",

@@ -785,6 +785,11 @@
       "gpuUsage": "Uso de GPU"
     },
     "faqs": "Perguntas frequentes",
+    "insufficient": {
+      "memberCta": "Ok, entendi",
+      "memberDescription": "Sua equipe usou todos os créditos. Os administradores do workspace precisam adicionar mais créditos para executar fluxos de trabalho.",
+      "memberTitle": "Este workspace está sem créditos"
+    },
     "invoiceHistory": "Histórico de faturas",
     "lastUpdated": "Última atualização",
     "loadEventsError": "Falha ao carregar a atividade. Por favor, tente novamente.",
@@ -4398,6 +4403,32 @@
     }
   },
   "workspacePanel": {
+    "billingStatus": {
+      "ending": {
+        "body": "Os membros mantêm acesso total até lá. Reative para manter seus créditos e vagas compartilhados.",
+        "reactivate": "Reativar plano",
+        "title": "O plano da sua equipe termina em {date}"
+      },
+      "outOfCredits": {
+        "addCredits": "Adicionar créditos",
+        "body": "Sua equipe usou todos os créditos. Adicione mais créditos para continuar gerando ou aguarde até que os créditos sejam renovados em {date}.",
+        "bodyNoDate": "Sua equipe usou todos os créditos. Adicione mais créditos para continuar gerando.",
+        "dismiss": "Dispensar",
+        "memberBody": "Sua equipe usou todos os créditos. Os administradores do workspace precisam adicionar mais créditos para continuar gerando.",
+        "title": "Sem créditos"
+      },
+      "paused": {
+        "body": "A assinatura deste workspace está pausada. Atualize o pagamento para retomar.",
+        "memberBody": "A assinatura deste workspace está pausada. Os administradores do workspace precisam atualizar o método de pagamento.",
+        "title": "Assinatura pausada"
+      },
+      "updatePayment": "Atualizar pagamento",
+      "warning": {
+        "body": "Seu último pagamento não foi processado. Sua assinatura será pausada em {date} caso o pagamento não seja atualizado.",
+        "bodyNoDate": "Seu último pagamento não foi processado. Atualize o pagamento para evitar a pausa.",
+        "title": "Pagamento recusado"
+      }
+    },
     "changeRoleDialog": {
       "demoteConfirm": "Rebaixar para membro",
       "demoteMessage": "Ele(a) perderá acesso de administrador.",
