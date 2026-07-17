@@ -13,14 +13,8 @@ vi.mock('@/scripts/api', () => ({
   }
 }))
 
-function jsonResponse(body: unknown, init: Partial<Response> = {}): Response {
-  return {
-    ok: true,
-    status: 200,
-    statusText: 'OK',
-    json: () => Promise.resolve(body),
-    ...init
-  } as Response
+function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
+  return new Response(JSON.stringify(body), init)
 }
 
 describe('partnerNodePolicyApi', () => {
@@ -48,7 +42,7 @@ describe('partnerNodePolicyApi', () => {
 
   it('maps 404 to an unconfigured policy', async () => {
     mockFetchApi.mockResolvedValue(
-      jsonResponse({}, { ok: false, status: 404, statusText: 'Not Found' })
+      jsonResponse({}, { status: 404, statusText: 'Not Found' })
     )
 
     await expect(getPartnerNodePolicy()).resolves.toBeNull()
@@ -56,10 +50,7 @@ describe('partnerNodePolicyApi', () => {
 
   it('preserves non-404 status codes for policy decisions', async () => {
     mockFetchApi.mockResolvedValue(
-      jsonResponse(
-        {},
-        { ok: false, status: 503, statusText: 'Service Unavailable' }
-      )
+      jsonResponse({}, { status: 503, statusText: 'Service Unavailable' })
     )
 
     await expect(getPartnerNodePolicy()).rejects.toEqual(
