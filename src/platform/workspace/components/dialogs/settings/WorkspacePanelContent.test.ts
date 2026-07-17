@@ -9,12 +9,19 @@ import WorkspacePanelContent from './WorkspacePanelContent.vue'
 const mockFetchMembers = vi.fn()
 const mockFetchPendingInvites = vi.fn()
 
-const { mockMembers, mockWorkspaceType } = vi.hoisted(() => {
+const {
+  mockGovernedWorkspaceId,
+  mockMembers,
+  mockWorkspaceRole,
+  mockWorkspaceType
+} = vi.hoisted(() => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/consistent-type-imports
   const { ref } = require('vue') as typeof import('vue')
 
   return {
+    mockGovernedWorkspaceId: ref<string | null>('workspace-one'),
     mockMembers: ref<WorkspaceMember[]>([]),
+    mockWorkspaceRole: ref<'owner' | 'member'>('owner'),
     mockWorkspaceType: ref<'personal' | 'team'>('team')
   }
 })
@@ -41,15 +48,19 @@ vi.mock('@/platform/workspace/stores/teamWorkspaceStore', () => {
 })
 
 vi.mock('@/platform/workspace/composables/useWorkspaceUI', () => {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/consistent-type-imports
-  const { ref } = require('vue') as typeof import('vue')
   return {
     useWorkspaceUI: () => ({
       workspaceType: mockWorkspaceType,
-      workspaceRole: ref('owner')
+      workspaceRole: mockWorkspaceRole
     })
   }
 })
+
+vi.mock('@/platform/workspace/stores/partnerNodeGovernanceStore', () => ({
+  usePartnerNodeGovernanceStore: () => ({
+    governedWorkspaceId: mockGovernedWorkspaceId
+  })
+}))
 
 vi.mock(
   '@/platform/workspace/components/SubscriptionPanelContentWorkspace.vue',
@@ -73,6 +84,11 @@ vi.mock(
       template: '<div data-testid="billing-banner" />'
     }
   })
+)
+
+vi.mock(
+  '@/platform/workspace/components/dialogs/settings/PartnerNodeAllowlistPanel.vue',
+  () => ({ default: { template: '<div />' } })
 )
 
 const i18n = createI18n({
@@ -107,6 +123,8 @@ describe('WorkspacePanelContent billing banner', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockMembers.value = []
+    mockGovernedWorkspaceId.value = 'workspace-one'
+    mockWorkspaceRole.value = 'owner'
     mockWorkspaceType.value = 'team'
   })
 
@@ -126,6 +144,8 @@ describe('WorkspacePanelContent members tab label', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockMembers.value = []
+    mockGovernedWorkspaceId.value = 'workspace-one'
+    mockWorkspaceRole.value = 'owner'
     mockWorkspaceType.value = 'team'
   })
 
@@ -154,5 +174,40 @@ describe('WorkspacePanelContent members tab label', () => {
     renderComponent()
     expect(mockFetchMembers).toHaveBeenCalled()
     expect(mockFetchPendingInvites).toHaveBeenCalled()
+  })
+})
+
+describe('WorkspacePanelContent allowlist tab', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGovernedWorkspaceId.value = 'workspace-one'
+    mockWorkspaceRole.value = 'owner'
+    mockWorkspaceType.value = 'team'
+  })
+
+  it('shows the allowlist for an eligible workspace owner', () => {
+    renderComponent()
+
+    expect(
+      screen.getByRole('tab', { name: 'workspacePanel.tabs.allowlist' })
+    ).toBeInTheDocument()
+  })
+
+  it('hides the allowlist from workspace members', () => {
+    mockWorkspaceRole.value = 'member'
+    renderComponent()
+
+    expect(
+      screen.queryByRole('tab', { name: 'workspacePanel.tabs.allowlist' })
+    ).toBeNull()
+  })
+
+  it('hides the allowlist when governance is ineligible', () => {
+    mockGovernedWorkspaceId.value = null
+    renderComponent()
+
+    expect(
+      screen.queryByRole('tab', { name: 'workspacePanel.tabs.allowlist' })
+    ).toBeNull()
   })
 })

@@ -39,6 +39,18 @@
               : $t('workspacePanel.members.header')
           }}
         </TabsTrigger>
+        <TabsTrigger
+          v-if="showAllowlistTab"
+          value="allowlist"
+          :class="
+            cn(
+              tabTriggerBase,
+              activeTab === 'allowlist' ? tabTriggerActive : tabTriggerInactive
+            )
+          "
+        >
+          {{ $t('workspacePanel.tabs.allowlist') }}
+        </TabsTrigger>
       </TabsList>
 
       <BillingStatusBanner class="mt-4" />
@@ -48,6 +60,9 @@
       </TabsContent>
       <TabsContent value="members" class="mt-4">
         <MembersPanelContent :key="workspaceRole" />
+      </TabsContent>
+      <TabsContent v-if="showAllowlistTab" value="allowlist" class="mt-4">
+        <PartnerNodeAllowlistPanel />
       </TabsContent>
     </TabsRoot>
   </div>
@@ -62,8 +77,10 @@ import { TabsContent, TabsList, TabsRoot, TabsTrigger } from 'reka-ui'
 import WorkspaceProfilePic from '@/platform/workspace/components/WorkspaceProfilePic.vue'
 import BillingStatusBanner from '@/platform/workspace/components/dialogs/settings/BillingStatusBanner.vue'
 import MembersPanelContent from '@/platform/workspace/components/dialogs/settings/MembersPanelContent.vue'
+import PartnerNodeAllowlistPanel from '@/platform/workspace/components/dialogs/settings/PartnerNodeAllowlistPanel.vue'
 import SubscriptionPanelContentWorkspace from '@/platform/workspace/components/SubscriptionPanelContentWorkspace.vue'
 import { useWorkspaceUI } from '@/platform/workspace/composables/useWorkspaceUI'
+import { usePartnerNodeGovernanceStore } from '@/platform/workspace/stores/partnerNodeGovernanceStore'
 import { useTeamWorkspaceStore } from '@/platform/workspace/stores/teamWorkspaceStore'
 import { cn } from '@comfyorg/tailwind-utils'
 
@@ -83,7 +100,11 @@ const { workspaceName, members } = storeToRefs(workspaceStore)
 const { fetchMembers, fetchPendingInvites } = workspaceStore
 
 const { workspaceType, workspaceRole } = useWorkspaceUI()
+const { governedWorkspaceId } = storeToRefs(usePartnerNodeGovernanceStore())
 const isPersonalWorkspace = computed(() => workspaceType.value === 'personal')
+const showAllowlistTab = computed(
+  () => !!governedWorkspaceId.value && workspaceRole.value === 'owner'
+)
 const activeTab = ref(defaultTab)
 
 // Per design, the tab counts members only when there is more than the owner
