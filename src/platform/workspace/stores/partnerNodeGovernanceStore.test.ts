@@ -204,8 +204,18 @@ describe('partnerNodeGovernanceStore', () => {
     expect(store.isNodeDisabled('DisabledNode')).toBe(true)
   })
 
-  it('stays inactive outside an eligible team workspace', async () => {
+  it('stays inactive when partner-node governance is disabled', async () => {
     mockFlags.partnerNodeGovernanceEnabled = false
+
+    store = usePartnerNodeGovernanceStore()
+    await nextTick()
+
+    expect(mockGetPartnerNodePolicy).not.toHaveBeenCalled()
+    expect(store.status).toBe('inactive')
+    expect(store.isNodeDisabled('DisabledNode')).toBe(false)
+  })
+
+  it('stays inactive in a personal workspace', async () => {
     activateWorkspace('personal-workspace', 'personal')
 
     store = usePartnerNodeGovernanceStore()
