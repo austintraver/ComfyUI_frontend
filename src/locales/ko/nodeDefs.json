@@ -19652,6 +19652,28 @@
       }
     }
   },
+  "TextEncodeJoyImageEdit": {
+    "display_name": "TextEncodeJoyImageEdit",
+    "inputs": {
+      "clip": {
+        "name": "clip"
+      },
+      "images": {
+        "name": "이미지"
+      },
+      "prompt": {
+        "name": "프롬프트"
+      },
+      "vae": {
+        "name": "vae"
+      }
+    },
+    "outputs": {
+      "0": {
+        "tooltip": null
+      }
+    }
+  },
   "TextEncodeQwenImageEdit": {
     "display_name": "TextEncodeQwenImageEdit",
     "inputs": {

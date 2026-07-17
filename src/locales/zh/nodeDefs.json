@@ -19652,6 +19652,28 @@
       }
     }
   },
+  "TextEncodeJoyImageEdit": {
+    "display_name": "TextEncodeJoyImageEdit",
+    "inputs": {
+      "clip": {
+        "name": "clip"
+      },
+      "images": {
+        "name": "图像"
+      },
+      "prompt": {
+        "name": "提示词"
+      },
+      "vae": {
+        "name": "vae"
+      }
+    },
+    "outputs": {
+      "0": {
+        "tooltip": null
+      }
+    }
+  },
   "TextEncodeQwenImageEdit": {
     "display_name": "文本编码（QwenImageEdit）",
     "inputs": {
