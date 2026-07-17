@@ -32,6 +32,7 @@ import {
   createTestSubgraphNode
 } from '@/lib/litegraph/src/subgraph/__fixtures__/subgraphHelpers'
 import { useWidgetValueStore } from '@/stores/widgetValueStore'
+import { registerQueuePromptGuard } from '@/services/queuePromptGuardService'
 
 const {
   mockApiKeyAuthStore,
@@ -189,6 +190,93 @@ describe('ComfyApp', () => {
   })
 
   describe('queuePrompt', () => {
+    it('blocks before adding a disallowed prompt to the client queue', async () => {
+      const unregisterGuard = registerQueuePromptGuard(
+        'app.test.before-queue',
+        () => false
+      )
+      const dispatchEvent = vi
+        .spyOn(api, 'dispatchCustomEvent')
+        .mockImplementation(() => true)
+      const queuePrompt = vi.spyOn(api, 'queuePrompt')
+
+      try {
+        await expect(app.queuePrompt(0)).resolves.toBe(false)
+      } finally {
+        unregisterGuard()
+      }
+
+      expect(mockAuthStore.getAuthToken).not.toHaveBeenCalled()
+      expect(dispatchEvent).not.toHaveBeenCalled()
+      expect(queuePrompt).not.toHaveBeenCalled()
+    })
+
+    it('checks again after deferred authentication resolves', async () => {
+      const graph = new LGraph()
+      Reflect.set(app, 'rootGraphInternal', graph)
+      let resolveAuth: (token: string | undefined) => void = () => {}
+      mockAuthStore.getAuthToken.mockReturnValue(
+        new Promise((resolve) => {
+          resolveAuth = resolve
+        })
+      )
+      let guardCalls = 0
+      const unregisterGuard = registerQueuePromptGuard(
+        'app.test.after-auth',
+        () => ++guardCalls === 1
+      )
+      const queuePrompt = vi.spyOn(api, 'queuePrompt')
+
+      try {
+        const result = app.queuePrompt(0)
+        await vi.waitFor(() => {
+          expect(mockAuthStore.getAuthToken).toHaveBeenCalledOnce()
+        })
+        resolveAuth(undefined)
+
+        await expect(result).resolves.toBe(false)
+      } finally {
+        unregisterGuard()
+      }
+      expect(guardCalls).toBe(2)
+      expect(queuePrompt).not.toHaveBeenCalled()
+    })
+
+    it('dispatches queued progress when a later batch item is blocked', async () => {
+      const graph = new LGraph()
+      Reflect.set(app, 'rootGraphInternal', graph)
+      vi.spyOn(app, 'graphToPrompt').mockResolvedValue({
+        output: {},
+        workflow: createWorkflowGraphData()
+      })
+      vi.spyOn(api, 'queuePrompt').mockResolvedValue({
+        prompt_id: 'job-1',
+        node_errors: {},
+        error: ''
+      })
+      const dispatchEvent = vi
+        .spyOn(api, 'dispatchCustomEvent')
+        .mockImplementation(() => true)
+      let guardCalls = 0
+      const unregisterGuard = registerQueuePromptGuard(
+        'app.test.partial-batch',
+        () => ++guardCalls < 3
+      )
+
+      try {
+        await expect(app.queuePrompt(0, 2)).resolves.toBe(false)
+      } finally {
+        unregisterGuard()
+      }
+
+      expect(api.queuePrompt).toHaveBeenCalledOnce()
+      expect(dispatchEvent).toHaveBeenCalledWith('promptQueued', {
+        number: 0,
+        batchCount: 1,
+        requestId: 1
+      })
+    })
+
     it('shows the error overlay for successful prompt responses with node errors', async () => {
       const graph = new LGraph()
       const workflow = new ComfyWorkflow({

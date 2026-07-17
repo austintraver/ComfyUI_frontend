@@ -2935,6 +2935,10 @@
       "nodeToggle": "Allow {name}",
       "saved": "Partner node policy saved",
       "saveError": "Partner node policy could not be saved.",
+      "runBlocked": {
+        "summary": "Workflow blocked by workspace policy",
+        "detail": "Remove disabled partner nodes from this workflow or ask a workspace owner to update the policy."
+      },
       "enforcement": {
         "title": "Enforce partner node allowlist",
         "description": "Block partner nodes that are not explicitly allowed.",

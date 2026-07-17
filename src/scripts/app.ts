@@ -68,6 +68,7 @@ import { resolveAccountPrecondition } from '@/platform/errorCatalog/accountPreco
 import { useDialogService } from '@/services/dialogService'
 import { useExtensionService } from '@/services/extensionService'
 import { useLitegraphService } from '@/services/litegraphService'
+import { runQueuePromptGuards } from '@/services/queuePromptGuardService'
 import { useSubgraphService } from '@/services/subgraphService'
 import { useApiKeyAuthStore } from '@/stores/apiKeyAuthStore'
 import { useCommandStore } from '@/stores/commandStore'
@@ -1611,11 +1612,17 @@ export class ComfyApp {
     })
   }
 
+  private async isQueuePromptAllowed(): Promise<boolean> {
+    return await runQueuePromptGuards(this)
+  }
+
   async queuePrompt(
     number: number,
     batchCount: number = 1,
     queueNodeIds?: NodeExecutionId[]
   ): Promise<boolean> {
+    if (!(await this.isQueuePromptAllowed())) return false
+
     const requestId = this.nextQueueRequestId++
     this.queueItems.push({ number, batchCount, queueNodeIds, requestId })
     api.dispatchCustomEvent('promptQueueing', {
@@ -1648,6 +1655,18 @@ export class ComfyApp {
 
         const isPartialExecution = !!queueNodeIds?.length
         for (let i = 0; i < batchCount; i++) {
+          if (!(await this.isQueuePromptAllowed())) {
+            this.queueItems.length = 0
+            if (queuedCount > 0) {
+              api.dispatchCustomEvent('promptQueued', {
+                number,
+                batchCount: queuedCount,
+                requestId
+              })
+            }
+            return false
+          }
+
           // Allow widgets to run callbacks before a prompt has been queued
           // e.g. random seed before every gen
           forEachNode(this.rootGraph, (node) => {
