@@ -70,7 +70,7 @@
 
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from 'reka-ui'
 
@@ -106,6 +106,12 @@ const showAllowlistTab = computed(
   () => !!governedWorkspaceId.value && workspaceRole.value === 'owner'
 )
 const activeTab = ref(defaultTab)
+
+watch(showAllowlistTab, (isVisible) => {
+  if (!isVisible && activeTab.value === 'allowlist') {
+    activeTab.value = defaultTab === 'allowlist' ? 'plan' : defaultTab
+  }
+})
 
 // Per design, the tab counts members only when there is more than the owner
 const showMembersTabCount = computed(
