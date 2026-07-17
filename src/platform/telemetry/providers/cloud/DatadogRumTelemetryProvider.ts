@@ -1,7 +1,18 @@
-import type { PageViewMetadata, TelemetryProvider } from '../../types'
+import type {
+  ExecutionErrorMetadata,
+  ExecutionStartMetadata,
+  ExecutionSuccessMetadata,
+  PageViewMetadata,
+  TelemetryProvider
+} from '../../types'
+
+interface DatadogRumInternalContext {
+  view?: { id?: string }
+}
 
 interface DatadogRumClient {
   addAction(name: string, context?: Record<string, unknown>): void
+  getInternalContext(startTime?: number): DatadogRumInternalContext | undefined
   setViewName(name: string): void
 }
 
@@ -22,8 +33,7 @@ const SUPPORT_RECOVERY_PATHS = new Set([
 ])
 
 const WORKFLOW_CONTEXT = {
-  product: 'cloud_generation',
-  product_surface: 'workspace'
+  product: 'cloud_generation'
 } as const
 
 function getDatadogRum(): DatadogRumClient | undefined {
@@ -43,26 +53,43 @@ function getViewName(path = window.location.href): ViewName {
 }
 
 export class DatadogRumTelemetryProvider implements TelemetryProvider {
+  private readonly originViewIdsByJobId = new Map<string, string>()
+
   trackPageView(_pageName: string, properties?: PageViewMetadata): void {
     getDatadogRum()?.setViewName(getViewName(properties?.path))
   }
 
-  trackWorkflowExecution(): void {
-    getDatadogRum()?.addAction('workflow_execution_started', WORKFLOW_CONTEXT)
+  trackExecutionStarted(metadata: ExecutionStartMetadata): void {
+    const rum = getDatadogRum()
+    const originViewId = rum?.getInternalContext(metadata.startTime)?.view?.id
+    if (originViewId)
+      this.originViewIdsByJobId.set(metadata.jobId, originViewId)
+
+    rum?.addAction('workflow_execution_started', {
+      ...WORKFLOW_CONTEXT,
+      ...(originViewId && { origin_view_id: originViewId })
+    })
   }
 
-  trackExecutionSuccess(): void {
-    this.trackTerminalOutcome('success')
+  trackExecutionSuccess(metadata: ExecutionSuccessMetadata): void {
+    this.trackTerminalOutcome(metadata.jobId, 'success')
   }
 
-  trackExecutionError(): void {
-    this.trackTerminalOutcome('failure')
+  trackExecutionError(metadata: ExecutionErrorMetadata): void {
+    this.trackTerminalOutcome(metadata.jobId, 'failure')
   }
 
-  private trackTerminalOutcome(outcome: 'success' | 'failure'): void {
+  private trackTerminalOutcome(
+    jobId: string,
+    outcome: 'success' | 'failure'
+  ): void {
+    const originViewId = this.originViewIdsByJobId.get(jobId)
+    this.originViewIdsByJobId.delete(jobId)
+
     getDatadogRum()?.addAction('workflow_execution_completed', {
       ...WORKFLOW_CONTEXT,
-      outcome
+      outcome,
+      ...(originViewId && { origin_view_id: originViewId })
     })
   }
 }

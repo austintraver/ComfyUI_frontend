@@ -3,17 +3,19 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DatadogRumTelemetryProvider } from './DatadogRumTelemetryProvider'
 
 const addAction = vi.fn()
+const getInternalContext = vi.fn()
 const setViewName = vi.fn()
 
 function installDatadogRum(): void {
   Object.defineProperty(window, 'DD_RUM', {
     configurable: true,
-    value: { addAction, setViewName }
+    value: { addAction, getInternalContext, setViewName }
   })
 }
 
 afterEach(() => {
   addAction.mockReset()
+  getInternalContext.mockReset()
   setViewName.mockReset()
   Reflect.deleteProperty(window, 'DD_RUM')
 })
@@ -51,51 +53,65 @@ describe('DatadogRumTelemetryProvider', () => {
     expect(setViewName).toHaveBeenCalledWith(expected)
   })
 
-  it('tracks workflow execution starts', () => {
+  it('tracks workflow execution starts with the originating view', () => {
     installDatadogRum()
+    getInternalContext.mockReturnValue({ view: { id: 'view-a' } })
 
-    new DatadogRumTelemetryProvider().trackWorkflowExecution()
+    new DatadogRumTelemetryProvider().trackExecutionStarted({
+      jobId: 'job-a',
+      startTime: 42
+    })
 
+    expect(getInternalContext).toHaveBeenCalledWith(42)
     expect(addAction).toHaveBeenCalledWith('workflow_execution_started', {
       product: 'cloud_generation',
-      product_surface: 'workspace'
+      origin_view_id: 'view-a'
     })
   })
 
-  it.for([
-    {
-      outcome: 'success',
-      trackOutcome: (provider: DatadogRumTelemetryProvider) =>
-        provider.trackExecutionSuccess()
-    },
-    {
-      outcome: 'failure',
-      trackOutcome: (provider: DatadogRumTelemetryProvider) =>
-        provider.trackExecutionError()
-    }
-  ] as const)(
-    'tracks workflow $outcome outcomes',
-    ({ outcome, trackOutcome }) => {
-      installDatadogRum()
-      const provider = new DatadogRumTelemetryProvider()
+  it('preserves each origin view across workflow switches', () => {
+    installDatadogRum()
+    getInternalContext
+      .mockReturnValueOnce({ view: { id: 'view-a' } })
+      .mockReturnValueOnce({ view: { id: 'view-b' } })
+    const provider = new DatadogRumTelemetryProvider()
 
-      trackOutcome(provider)
+    provider.trackExecutionStarted({ jobId: 'job-a', startTime: 1 })
+    provider.trackExecutionStarted({ jobId: 'job-b', startTime: 2 })
+    provider.trackExecutionSuccess({ jobId: 'job-a' })
+    provider.trackExecutionError({ jobId: 'job-b' })
 
-      expect(addAction).toHaveBeenCalledWith('workflow_execution_completed', {
-        outcome,
-        product: 'cloud_generation',
-        product_surface: 'workspace'
-      })
-    }
-  )
+    expect(addAction).toHaveBeenNthCalledWith(
+      3,
+      'workflow_execution_completed',
+      {
+        outcome: 'success',
+        origin_view_id: 'view-a',
+        product: 'cloud_generation'
+      }
+    )
+    expect(addAction).toHaveBeenNthCalledWith(
+      4,
+      'workflow_execution_completed',
+      {
+        outcome: 'failure',
+        origin_view_id: 'view-b',
+        product: 'cloud_generation'
+      }
+    )
+  })
 
   it('does nothing when Datadog RUM is unavailable', () => {
     const provider = new DatadogRumTelemetryProvider()
 
     expect(() => provider.trackPageView('ignored')).not.toThrow()
-    expect(() => provider.trackWorkflowExecution()).not.toThrow()
-    expect(() => provider.trackExecutionSuccess()).not.toThrow()
-    expect(() => provider.trackExecutionError()).not.toThrow()
+    expect(() =>
+      provider.trackExecutionStarted({ jobId: 'job-a', startTime: 1 })
+    ).not.toThrow()
+    expect(() =>
+      provider.trackExecutionSuccess({ jobId: 'job-a' })
+    ).not.toThrow()
+    expect(() => provider.trackExecutionError({ jobId: 'job-a' })).not.toThrow()
     expect(addAction).not.toHaveBeenCalled()
     expect(setViewName).not.toHaveBeenCalled()
   })

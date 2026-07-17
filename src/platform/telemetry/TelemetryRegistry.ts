@@ -10,6 +10,7 @@ import type {
   ShareFlowMetadata,
   ShareLinkOpenedMetadata,
   ExecutionErrorMetadata,
+  ExecutionStartMetadata,
   ExecutionSuccessMetadata,
   HelpCenterClosedMetadata,
   HelpCenterOpenedMetadata,
@@ -266,6 +267,10 @@ export class TelemetryRegistry implements TelemetryDispatcher {
 
   trackWorkflowExecution(): void {
     this.dispatch((provider) => provider.trackWorkflowExecution?.())
+  }
+
+  trackExecutionStarted(metadata: ExecutionStartMetadata): void {
+    this.dispatch((provider) => provider.trackExecutionStarted?.(metadata))
   }
 
   trackExecutionError(metadata: ExecutionErrorMetadata): void {

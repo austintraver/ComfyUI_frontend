@@ -748,6 +748,10 @@ export const useExecutionStore = defineStore('execution', () => {
     if (workflow?.path) {
       ensureSessionWorkflowPath(id, workflow.path)
     }
+    useTelemetry()?.trackExecutionStarted({
+      jobId: id,
+      startTime: performance.now()
+    })
     flushPendingWorkflowStatus(String(id), workflow)
   }
 

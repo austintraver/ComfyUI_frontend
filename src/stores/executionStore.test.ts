@@ -20,6 +20,7 @@ const {
   mockActiveWorkflow,
   mockOpenWorkflows,
   mockShowTextPreview,
+  mockTrackExecutionStarted,
   mockTrackExecutionError,
   mockTrackExecutionSuccess,
   mockTrackSharedWorkflowRun
@@ -32,6 +33,7 @@ const {
     mockActiveWorkflow: shallowRef<{ path?: string } | null>(null),
     mockOpenWorkflows: shallowRef<{ path: string }[]>([]),
     mockShowTextPreview: vi.fn(),
+    mockTrackExecutionStarted: vi.fn(),
     mockTrackExecutionError: vi.fn(),
     mockTrackExecutionSuccess: vi.fn(),
     mockTrackSharedWorkflowRun: vi.fn()
@@ -91,6 +93,7 @@ vi.mock('@/platform/distribution/types', async () => ({
 
 vi.mock('@/platform/telemetry', () => ({
   useTelemetry: () => ({
+    trackExecutionStarted: mockTrackExecutionStarted,
     trackExecutionError: mockTrackExecutionError,
     trackExecutionSuccess: mockTrackExecutionSuccess,
     trackSharedWorkflowRun: mockTrackSharedWorkflowRun
@@ -631,6 +634,10 @@ describe('useExecutionStore - workflowStatus', () => {
     callStoreJob('job-1', workflowA)
     fireExecutionStart('job-1')
 
+    expect(mockTrackExecutionStarted).toHaveBeenCalledWith({
+      jobId: 'job-1',
+      startTime: expect.any(Number)
+    })
     expect(store.getWorkflowStatus(workflowA)).toBe('running')
   })
 
